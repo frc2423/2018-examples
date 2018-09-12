@@ -25,7 +25,12 @@ class MyRobot(wpilib.TimedRobot):
 
         self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
-        self.gyro = navx.AHRS.create_spi()
+        self.joystick = wpilib.Joystick(0)
+        self.JOYSTICK_DEADZONE_THRESHOLD = .5
+
+        #self.gyro = navx.AHRS.create_spi()
+        self.gyro = wpilib.ADXRS450_Gyro()
+
 
 
     def autonomousInit(self):
@@ -39,29 +44,34 @@ class MyRobot(wpilib.TimedRobot):
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
         current_angle = self.gyro.getAngle() % 360
+
         x = self.joystick.getX()
         y = self.joystick.getY()
-        desired_angle = math.atan2(y, x)
-
+        joystick_magnitude = math.sqrt(x**2 + y**2)
+        desired_angle = math.atan2(x, -y) * 180 / math.pi
         angle_distance = desired_angle - current_angle
 
         if angle_distance > 180:
             angle_distance -= 360
-        elif angle_distance < 180:
+        elif angle_distance < -180:
             angle_distance += 360
 
         # bang-bang controller
-        '''
         if angle_distance > 0:
             turn_rate = .5
         else:
             turn_rate = -.5
-        '''
+
+
+        print('angle_distance:', angle_distance)
 
         # proportional controller
-        turn_rate = (angle_distance / 180) * 1
+        #turn_rate = (angle_distance / 180) * 1
 
-        self.robot_drive.arcadeDrive(turn_rate, 0)
+        if joystick_magnitude < self.JOYSTICK_DEADZONE_THRESHOLD:
+            self.robot_drive.arcadeDrive(0, 0)
+        else:
+            self.robot_drive.arcadeDrive(turn_rate, 0)
 
 
 

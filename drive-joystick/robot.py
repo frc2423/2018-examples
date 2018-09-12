@@ -14,8 +14,6 @@ class MyRobot(wpilib.TimedRobot):
         This function is called upon program startup and
         should be used for any initialization code.
         """
-        br, fr, bl, fl = (1, 7, 2, 5)  # on competition robot
-
         self.br_motor = ctre.wpi_talonsrx.WPI_TalonSRX(1)
         self.bl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(2)
         self.fl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(5)
@@ -25,7 +23,7 @@ class MyRobot(wpilib.TimedRobot):
 
         self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
-        self.joystick = wpilib.Joystick(1)
+        self.joystick = wpilib.Joystick(0)
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
@@ -33,7 +31,7 @@ class MyRobot(wpilib.TimedRobot):
 
     def autonomousPeriodic(self):
         """This function is called periodically during autonomous."""
-        pass
+        self.robot_drive.arcadeDrive(0, 0)
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""

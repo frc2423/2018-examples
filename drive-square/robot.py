@@ -23,6 +23,8 @@ class MyRobot(wpilib.TimedRobot):
 
         self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
+        self.joystick = wpilib.Joystick(0)
+
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
@@ -34,10 +36,10 @@ class MyRobot(wpilib.TimedRobot):
         """This function is called periodically during autonomous."""
         if self.state == 'forward':
             # perform action
-            self.robot_drive.arcadeDrive(0, .5)
+            self.robot_drive.arcadeDrive(0, -.5)
 
             # transition to the next state after 3 seconds
-            if self.timer.get() > 3:
+            if self.timer.get() > 2:
                 self.state = 'turn'
                 self.timer.reset()
 
@@ -46,13 +48,13 @@ class MyRobot(wpilib.TimedRobot):
             self.robot_drive.arcadeDrive(.5, 0)
 
             # Transition to the next state after robot has turned 90 degrees using dead reckoning
-            if self.timer.get() > 2:
+            if self.timer.get() > 1.4:
                 self.state = 'forward'
                 self.timer.reset()
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        pass
+        self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
 
 
 if __name__ == "__main__":

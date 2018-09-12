@@ -23,23 +23,26 @@ class MyRobot(wpilib.TimedRobot):
 
         self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
-        self.joystick = wpilib.Joystick(1)
+        self.joystick = wpilib.Joystick(0)
+
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
+        self.fl_motor.setQuadraturePosition(0, 0)
         pass
 
     def autonomousPeriodic(self):
         """This function is called periodically during autonomous."""
         position = self.fl_motor.getQuadraturePosition()
-        if position < 100:
-            self.robot_drive.arcadeDrive(0, .5)
+        print("position: ", position);
+        if position > -1000:
+            self.robot_drive.arcadeDrive(0, -.5)
         else:
             self.robot_drive.arcadeDrive(0, 0)
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        pass
+        self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
 
 
 if __name__ == "__main__":

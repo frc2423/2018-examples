@@ -4,7 +4,7 @@
 """
 
 import wpilib
-import ctres
+import ctre
 
 
 class MyRobot(wpilib.TimedRobot):
@@ -23,7 +23,7 @@ class MyRobot(wpilib.TimedRobot):
 
         self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
-        self.joystick = wpilib.Joystick(1)
+        self.joystick = wpilib.Joystick(0)
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
@@ -35,20 +35,23 @@ class MyRobot(wpilib.TimedRobot):
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        if self.joystick.getRawButton(1):
+        turn_rate = 0
+        speed = 0
+
+        if self.joystick.getRawButton(3):
             # Drive forwards
-            self.robot_drive.arcadeDrive(0, .5)
+            speed = -.5
         elif self.joystick.getRawButton(2):
             # Drive backwards
-            self.robot_drive.arcadeDrive(0, -.5)
-        elif self.joystick.getRawButton(3):
-            # Turn left
-            self.robot_drive.arcadeDrive(-.5, 0)
+            speed = .5
         elif self.joystick.getRawButton(4):
+            # Turn left
+            turn_rate = -.5
+        elif self.joystick.getRawButton(5):
             # Turn right
-            self.robot_drive.arcadeDrive(.5, 0)
-        else:
-            self.robot_drive.arcadeDrive(0, 0)
+            turn_rate = .5
+
+        self.robot_drive.arcadeDrive(turn_rate, speed)
 
 
 if __name__ == "__main__":
