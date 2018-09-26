@@ -60,6 +60,38 @@ class MyRobot(wpilib.TimedRobot):
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
+        self.calculate_position()
+
+        self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
+
+        desired_x = -2 * 12
+        desired_y = 5 * 12
+
+        threshold_angle = 5
+        threshold_distance = 12
+
+        desired_angle = math.atan2(desired_y/desired_x)
+        distance = math.sqrt((desired_x - self.x_pos) ** 2 + (desired_y - self.y_pos) ** 2)
+
+        if self.angle < desired_angle - threshold_angle:
+            self.robot_drive.arcadeDrive(.5, 0)
+        elif self.angle > desired_angle + threshold_angle:
+            self.robot_drive.arcadeDrive(-.5 ,0)
+        elif distance > threshold_distance:
+            self.robot_drive.arcadeDrive(0, .5)
+        else:
+            self.robot_drive.arcadeDrive(0, 0)
+
+
+
+
+
+
+        print('position:', self.x_pos, ', ', self.y_pos)
+        print('angle:', self.angle)
+
+
+    def calculate_position(self):
         dt = self.getPeriod()
 
         left_angular_pos = self.get_left_angular_pos()
@@ -79,9 +111,6 @@ class MyRobot(wpilib.TimedRobot):
         # Update the robot's position
         self.x_pos += vel * math.sin(self.angle) * dt
         self.y_pos += vel * math.cos(self.angle) * dt
-
-        print('position:', self.x_pos, ', ', self.y_pos)
-        print('angle:', self.angle)
 
         # save these values so we can take the difference between them. We want to measure
         # the difference in order to calculate the angular velocity.
