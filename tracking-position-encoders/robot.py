@@ -14,6 +14,12 @@ class MyRobot(wpilib.TimedRobot):
     WHEEL_RADIUS = 3
     DRIVE_BASE = 28
 
+    # In degrees
+    THRESHOLD_ANGLE = 5
+
+    # In inches
+    THRESHOLD_DISTANCE = 12
+
     def robotInit(self):
         """
         This function is called upon program startup and
@@ -49,49 +55,52 @@ class MyRobot(wpilib.TimedRobot):
         self.robot_drive.arcadeDrive(0, 0)
 
     def teleopInit(self):
-        self.fl_motor.setQuadraturePosition(0, 0)
-        self.br_motor.setQuadraturePosition(0, 0)
-        self.x_pos = 0
-        self.y_pos = 0
-        self.angle = 0
-        self.prev_left_angular_pos = self.get_left_angular_pos()
-        self.prev_right_angular_pos = self.get_right_angular_pos()
+        self.reset_odometry()
 
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        self.calculate_position()
+        self.calculate_odometry()
 
-        self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
+        if self.joystick.getRawButton(3):
+            self.reset_odometry()
 
-        desired_x = -2 * 12
-        desired_y = 5 * 12
+        if self.joystick.getTrigger():
+            self.drive_to(4, 4)
+        else:
+            self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
 
-        threshold_angle = 5
-        threshold_distance = 12
+        print('position: %1.2f, %1.2f' % self.get_position())
+        print('angle: %1.0f' % self.get_angle())
 
-        desired_angle = math.atan2(desired_y/desired_x)
+    def drive_to(self, desired_x, desired_y):
+
+        # change from feet to inches
+        desired_x *= 12
+        desired_y *= 12
+
+        desired_angle = math.atan2(desired_x - self.x_pos, desired_y - self.y_pos) * 180 / math.pi
         distance = math.sqrt((desired_x - self.x_pos) ** 2 + (desired_y - self.y_pos) ** 2)
 
-        if self.angle < desired_angle - threshold_angle:
+        angle_distance = desired_angle - self.get_angle()
+        if angle_distance > 180:
+            angle_distance -= 360
+        elif angle_distance < -180:
+            angle_distance += 360
+
+        if angle_distance > MyRobot.THRESHOLD_ANGLE:
             self.robot_drive.arcadeDrive(.5, 0)
-        elif self.angle > desired_angle + threshold_angle:
-            self.robot_drive.arcadeDrive(-.5 ,0)
-        elif distance > threshold_distance:
-            self.robot_drive.arcadeDrive(0, .5)
+        elif angle_distance < -MyRobot.THRESHOLD_ANGLE:
+            self.robot_drive.arcadeDrive(-.5, 0)
+        elif distance > MyRobot.THRESHOLD_DISTANCE:
+            self.robot_drive.arcadeDrive(0, -.5)
         else:
             self.robot_drive.arcadeDrive(0, 0)
 
 
+    def calculate_odometry(self):
 
-
-
-
-        print('position:', self.x_pos, ', ', self.y_pos)
-        print('angle:', self.angle)
-
-
-    def calculate_position(self):
+        # get how much time has passed
         dt = self.getPeriod()
 
         left_angular_pos = self.get_left_angular_pos()
@@ -105,7 +114,7 @@ class MyRobot(wpilib.TimedRobot):
         vel = (left_angular_vel + right_angular_vel) * MyRobot.WHEEL_RADIUS / 2
 
         # calculate angular velocity and use it to calculate the new heading of the robot
-        angular_vel = (right_angular_vel - left_angular_vel) * MyRobot.WHEEL_RADIUS / MyRobot.DRIVE_BASE
+        angular_vel = (left_angular_vel - right_angular_vel) * MyRobot.WHEEL_RADIUS / MyRobot.DRIVE_BASE
         self.angle += angular_vel * dt
 
         # Update the robot's position
@@ -117,6 +126,29 @@ class MyRobot(wpilib.TimedRobot):
         self.prev_left_angular_pos = left_angular_pos
         self.prev_right_angular_pos = right_angular_pos
 
+
+    def reset_odometry(self):
+        self.fl_motor.setQuadraturePosition(0, 0)
+        self.br_motor.setQuadraturePosition(0, 0)
+        self.x_pos = 0
+        self.y_pos = 0
+        self.angle = 0
+        self.prev_left_angular_pos = self.get_left_angular_pos()
+        self.prev_right_angular_pos = self.get_right_angular_pos()
+
+
+    def get_angle(self):
+        '''Returns an angle between -180 and 180'''
+        angle_degrees = (self.angle % (math.pi * 2)) * (180 / math.pi)
+        if angle_degrees < -180:
+            return angle_degrees + 360
+        elif angle_degrees > 180:
+            return angle_degrees - 360
+        else:
+            return angle_degrees
+
+    def get_position(self):
+        return self.x_pos / 12, self.y_pos / 12
 
     def get_left_angular_pos(self):
       encoder_value = self.fl_motor.getQuadraturePosition()
