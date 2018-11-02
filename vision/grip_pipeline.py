@@ -1,6 +1,8 @@
-# Import OpenCV and NumPy
 import cv2
 import numpy as np
+import math
+from enum import Enum
+
 
 class GripPipeline:
     """
@@ -12,16 +14,16 @@ class GripPipeline:
         """
 
         self.__cv_resize_dsize = (0, 0)
-        self.__cv_resize_fx = 1
-        self.__cv_resize_fy = 1
+        self.__cv_resize_fx = 0.25
+        self.__cv_resize_fy = 0.25
         self.__cv_resize_interpolation = cv2.INTER_LINEAR
 
         self.cv_resize_output = None
 
         self.__hsv_threshold_input = self.cv_resize_output
-        self.__hsv_threshold_hue = [118.16546762589928, 155.55178268251277]
-        self.__hsv_threshold_saturation = [43.57014388489208, 200.88285229202037]
-        self.__hsv_threshold_value = [89.43345323741006, 250.67062818336163]
+        self.__hsv_threshold_hue = [24.0, 42.0]
+        self.__hsv_threshold_saturation = [122.0, 255.0]
+        self.__hsv_threshold_value = [124.0, 255.0]
 
         self.hsv_threshold_output = None
 
@@ -40,7 +42,7 @@ class GripPipeline:
         self.mask_output = None
 
         self.__find_blobs_input = self.mask_output
-        self.__find_blobs_min_area = 54.0
+        self.__find_blobs_min_area = 300.0
         self.__find_blobs_circularity = [0.0, 1.0]
         self.__find_blobs_dark_blobs = False
 
@@ -75,6 +77,12 @@ class GripPipeline:
         self.__find_blobs_input = self.mask_output
         (self.find_blobs_output) = self.__find_blobs(self.__find_blobs_input, self.__find_blobs_min_area,
                                                      self.__find_blobs_circularity, self.__find_blobs_dark_blobs)
+
+
+        # Add
+        self.key_points_output = cv2.drawKeypoints(self.mask_output, self.find_blobs_output, outImage=np.array([]),
+                                               color=(0, 0, 255),
+                                               flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
     @staticmethod
     def __cv_resize(src, d_size, fx, fy, interpolation):
@@ -148,10 +156,13 @@ class GripPipeline:
         params.maxThreshold = 220
         params.filterByArea = True
         params.minArea = min_area
-        params.filterByCircularity = True
-        params.minCircularity = circularity[0]
-        params.maxCircularity = circularity[1]
+        #params.filterByCircularity = True
+        #params.minCircularity = circularity[0]
+        #params.maxCircularity = circularity[1]
         params.filterByConvexity = False
         params.filterByInertia = False
         detector = cv2.SimpleBlobDetector_create(params)
         return detector.detect(input)
+
+
+
