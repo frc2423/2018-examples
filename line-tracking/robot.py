@@ -25,11 +25,14 @@ class MyRobot(wpilib.TimedRobot):
 
         self.joystick = wpilib.Joystick(0)
 
-        # line sensors 0 is far left, 3 is far right
+        # line sensors 0 is far left, 6 is far right
         self.line_sensor0 = wpilib.DigitalInput(4)
-        self.line_sensor1 = wpilib.DigitalInput(1)
-        self.line_sensor2 = wpilib.DigitalInput(0)
-        self.line_sensor3 = wpilib.DigitalInput(3)
+        self.line_sensor1 = wpilib.DigitalInput(5)
+        self.line_sensor2 = wpilib.DigitalInput(1)
+        self.line_sensor3 = wpilib.DigitalInput(6)
+        self.line_sensor4 = wpilib.DigitalInput(0)
+        self.line_sensor5 = wpilib.DigitalInput(7)
+        self.line_sensor6 = wpilib.DigitalInput(3)
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
@@ -43,24 +46,37 @@ class MyRobot(wpilib.TimedRobot):
 
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
-        speed = self.joystick.getY()
 
-        SEES_LINE = True
-        print('sensor value:', self.line_sensor0.get(), self.line_sensor1.get(), self.line_sensor2.get(), self.line_sensor3.get())
-        #self.line_sensor0.
-        if self.joystick.getTrigger():
-           if self.line_sensor0.get() == SEES_LINE:
-               self.robot_drive.arcadeDrive(speed, 0)
-           elif self.line_sensor1.get() == SEES_LINE:
-               self.robot_drive.arcadeDrive(speed , speed* .8)
-           elif self.line_sensor2.get() == SEES_LINE:
-               self.robot_drive.arcadeDrive(-speed, speed * .8)
-           elif self.line_sensor3.get() == SEES_LINE:
-               self.robot_drive.arcadeDrive(-speed, 0)
-           else:
-               self.robot_drive.arcadeDrive(0, speed * .8)
+        if self.joystick.getRawButton(1):
+            speed = self.joystick.getY()
+
+            sensor_list = [self.line_sensor0, self.line_sensor1, self.line_sensor2, self.line_sensor3, self.line_sensor4, self.line_sensor5, self.line_sensor6]
+
+            SEES_LINE = True
+            turn_rate  = 0
+
+            sensors_count = 0
+            for i in range(0, len(sensor_list)):
+                sensor = sensor_list[i]
+                if sensor.get() == SEES_LINE:
+                    turn_rate += i - 3
+                    sensors_count += 1
+
+            if sensors_count == 0:
+                turn_rate = 0
+            else:
+                turn_rate = -turn_rate/(sensors_count*3)
+
+            print('turn_rate: ', turn_rate)
+            print('sensor_count: ', sensors_count)
+
+            self.robot_drive.arcadeDrive(turn_rate * speed, speed)
         else:
-            self.robot_drive.arcadeDrive(self.joystick.getX(), speed)
+            self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
+
+
+        print('sensor value:', self.line_sensor0.get(), self.line_sensor1.get(), self.line_sensor2.get(), self.line_sensor3.get())
+
 
 
 
