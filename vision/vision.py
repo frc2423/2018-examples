@@ -11,19 +11,9 @@ from grip_pipeline import GripPipeline
 from networktables import NetworkTables
 from networktables.util import ntproperty
 
-nt = {
-
-}
-found_target = ntproperty('/vision/target_found', False)
-target_size = ntproperty('/vision/target_size', 0)
-target_x = ntproperty('/vision/target_x', 0)
-target_y = ntproperty('/vision/target_y', 0)
-
-
 # Connect to the robot
-NetworkTables.setIPAddress('127.0.0.1')
-NetworkTables.setClientMode()
-NetworkTables.initialize()
+NetworkTables.initialize(server='127.0.0.1')
+sd = NetworkTables.getTable("vision")
 
 
 def find_largest_blob(blobs):
@@ -60,6 +50,8 @@ def main():
     img = np.zeros(shape=(240, 320, 3), dtype=np.uint8)
 
     while True:
+
+
         # Tell the CvSink to grab a frame from the camera and put it
         # in the source image.  If there is an error notify the output.
         time, img = cvSink.grabFrame(img)
@@ -81,9 +73,11 @@ def main():
         largest_blob = find_largest_blob(pipeline.find_blobs_output)
 
         if largest_blob is not None:
-            found_target = True
-            x, y = get_distance_from_center(pipeline.key_points_output, largest_blob)
-            size = largest_blob.size
+            sd.putBoolean('target_found', True)
+            target_x, target_y = get_distance_from_center(pipeline.key_points_output, largest_blob)
+            sd.putNumber('target_x', target_x)
+            sd.putNumber('target_y', target_y)
+            sd.putNumber('target_size', largest_blob.size)
         else:
-            found_target = False
+            sd.putBoolean('target_found', False)
 
