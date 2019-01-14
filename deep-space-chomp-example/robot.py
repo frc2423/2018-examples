@@ -41,10 +41,20 @@ class MyRobot(wpilib.TimedRobot):
 
         self.servo = wpilib.Servo(2)
 
+        self.timer = wpilib.Timer()
+
+        self.initial_time = 0
+
+        self.chomp_pressed = False
+
+        self.chomp_position = 0
+
         self.last_button_value = False
 
     def autonomousInit(self):
         """This function is run once each time the robot enters autonomous mode."""
+
+
         pass
 
     def autonomousPeriodic(self):
@@ -71,10 +81,12 @@ class MyRobot(wpilib.TimedRobot):
 
         self.elevator_motor.set(elevator_speed)
 
+        chomp_relay_on = wpilib.Relay.Value.kOn
+        chomp_relay_off = wpilib.Relay.Value.kOff
+
         current_value = self.joystick.getRawButton(3)
         if current_value and not self.last_button_value:
 
-            print("toggled!!!")
             if self.chomp_relay.get() == wpilib.Relay.Value.kOff:
                 self.chomp_relay.set(wpilib.Relay.Value.kOn)
             else:
@@ -84,10 +96,27 @@ class MyRobot(wpilib.TimedRobot):
 
         # left bumper
         if self.joystick.getRawButton(5):
-            self.servo.set(1)
+            self.timer.reset()
+            #self.initial_time = self.timer.getMsClock()
+            self.chomp_pressed = True
+            self.chomp_position = 1
+            self.timer.start()
+
         # right bumper
         if self.joystick.getRawButton(6):
-            self.servo.set(0)
+            self.timer.reset()
+            #self.initial_time = self.timer.getMsClock()
+            self.chomp_pressed = True
+            self.chomp_position= 0
+            self.timer.start()
+
+
+        if self.chomp_pressed and self.timer.get() < 1:
+            self.chomp_relay.set(chomp_relay_on)
+            self.servo.set(self.chomp_position)
+        else:
+            self.chomp_relay.set(chomp_relay_off)
+            self.chomp_pressed = False
 
 
 
