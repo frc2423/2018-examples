@@ -5,6 +5,7 @@
 
 import wpilib
 import ctre
+import math
 from networktables import NetworkTables
 from networktables.util import ntproperty
 
@@ -114,7 +115,15 @@ class MyRobot(wpilib.TimedRobot):
             # self.pid.disable()
             self.robot_drive.arcadeDrive(self.joystick.getX(), self.joystick.getY())
 
+    def get_left_angular_pos(self):
+        encoder_value = self.fl_motor.getQuadraturePosition()
+        ticks_per_turn = -1000
+        return 2 * math.pi * encoder_value / ticks_per_turn
 
+    def get_right_angular_pos(self):
+        encoder_value = self.br_motor.getQuadraturePosition()
+        ticks_per_turn = 1440
+        return 2 * math.pi * encoder_value / ticks_per_turn
 
 if __name__ == "__main__":
     wpilib.run(MyRobot)
