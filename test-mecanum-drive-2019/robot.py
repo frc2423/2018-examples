@@ -12,6 +12,7 @@ from networktables.util import ntproperty
 class MyRobot(wpilib.TimedRobot):
 
     servo_position = ntproperty('/Servo/Value', .5)
+    servo_offset = ntproperty('/Servo/Offset', 0)
 
     def robotInit(self):
         self.BRmotor = ctre.wpi_talonsrx.WPI_TalonSRX(40)
@@ -69,7 +70,7 @@ class MyRobot(wpilib.TimedRobot):
          #   self.littlearms1.set(0.5)
           #  self.littlearms2.set(0.5)
 
-        print("Lil Arms 1: ",self.littlearms1.get(), "      Lil Arms 2:",self.littlearms2.get())
+        print("Lil Arms 1: ",self.littlearms1.get(), "Lil Arms 2:",self.littlearms2.get())
 
 if __name__ == "__main__":
     wpilib.run(MyRobot)
