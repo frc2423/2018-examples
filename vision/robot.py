@@ -23,9 +23,20 @@ class MyRobot(wpilib.TimedRobot):
     I = ntproperty('/PID/I', 0)
     D = ntproperty('/PID/D', 0)
 
+
+
+
     ticks_per_rev_left = ntproperty('/encoders/ticks_per_rev_left', -1000)
     ticks_per_rev_right = ntproperty('/encoders/ticks_per_rev', 1440)
-    max_speed = ntproperty('/encoders/max_speed', 10)
+    max_speed = ntproperty('/encoders/max_speed', 5)
+
+    p_left = ntproperty('/encoders/p_left', 1)
+    i_left = ntproperty('/encoders/i_left', 0)
+    d_left = ntproperty('/encoders/d_left', 0)
+
+    p_right = ntproperty('/encoders/p_right', 1)
+    i_right = ntproperty('/encoders/i_right', 0)
+    d_right = ntproperty('/encoders/d_right', 0)
 
     wheel_diameter = ntproperty('/encoders/wheel_diameter', 6)
 
@@ -49,25 +60,32 @@ class MyRobot(wpilib.TimedRobot):
         self.bl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(2)
         self.fl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(5)
         self.fr_motor = ctre.wpi_talonsrx.WPI_TalonSRX(7)
+
         self.fr_motor.setInverted(True)
         self.br_motor.setInverted(True)
+
         self.br_motor.follow(self.fr_motor)
         self.bl_motor.follow(self.fl_motor)
 
 
-        self.fr_motor.config_kP(1, 1, 0)
-        self.fr_motor.config_kI(1, 0, 0)
-        self.fr_motor.config_kD(1, 0, 0)
+        self.fl_motor.config_kP(0, self.p_left, 0)
+        self.fl_motor.config_kI(0, self.i_left, 0)
+        self.fl_motor.config_kD(0, self.d_left, 0)
 
-        self.fl_motor.config_kP(1, 1, 0)
-        self.fl_motor.config_kI(1, 0, 0)
-        self.fl_motor.config_kD(1, 0, 0)
+        self.fr_motor.config_kP(0, self.p_right, 0)
+        self.fr_motor.config_kI(0, self.i_right, 0)
+        self.fr_motor.config_kD(0, self.d_right, 0)
 
-        self.fr_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.CTRE_MagEncoder_Relative, 1, 0)
+
+
+        self.fr_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.QuadEncoder, 0, 0)
         self.fr_motor.setSensorPhase(False)
 
+        self.fr_motor.reverse()
 
-        self.fl_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.CTRE_MagEncoder_Relative, 1, 0)
+
+
+        self.fl_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.QuadEncoder, 0, 0)
 
         #self.robot_drive = wpilib.RobotDrive(self.fl_motor, self.bl_motor, self.fr_motor, self.br_motor)
 
@@ -93,6 +111,20 @@ class MyRobot(wpilib.TimedRobot):
     def entry_listener(self, key, value, is_new):
         if key == '/vision/target_found':
             print('target status changed to ', value)
+
+        elif key == '/encoders/p_left':
+            self.fl_motor.config_kP(0, self.p_left, 0)
+        elif key == '/encoders/i_left':
+            self.fl_motor.config_kI(0, self.i_left, 0)
+        elif key == '/encoders/d_left':
+            self.fl_motor.config_kD(0, self.d_left, 0)
+
+        elif key == '/encoders/p_right':
+            self.fr_motor.config_kP(0, self.p_right, 0)
+        elif key == '/encoders/i_right':
+            self.fr_motor.config_kI(0, self.i_right, 0)
+        elif key == '/encoders/d_right':
+            self.fr_motor.config_kD(0, self.d_right, 0)
 
     def pid_source(self):
         return self.target_x
@@ -137,15 +169,12 @@ class MyRobot(wpilib.TimedRobot):
     def teleopPeriodic(self):
         """This function is called periodically during operator control."""
 
-        left_speed = -self.joystick.getRawAxis(1) * self.max_speed
+        left_speed = self.joystick.getRawAxis(1) * self.max_speed
         left_motor_speed = self.to_motor_speed(left_speed, self.ticks_per_rev_left)
 
-        print('left_motor_speed:', left_motor_speed)
-
+        print('selected sensor velocity', left_motor_speed, self.fl_motor.getSelectedSensorVelocity(0))
 
         self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, left_motor_speed)
-
-        print('encoder', self.fl_motor.getQuadraturePosition())
 
         right_speed = -self.joystick.getRawAxis(5) * self.max_speed
         right_motor_speed = self.to_motor_speed(right_speed, self.ticks_per_rev_right)
