@@ -81,9 +81,6 @@ class MyRobot(wpilib.TimedRobot):
         self.fr_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.QuadEncoder, 0, 0)
         self.fr_motor.setSensorPhase(False)
 
-        self.fr_motor.reverse()
-
-
 
         self.fl_motor.configSelectedFeedbackSensor(ctre.FeedbackDevice.QuadEncoder, 0, 0)
 
