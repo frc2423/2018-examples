@@ -75,7 +75,7 @@ class MyRobot(wpilib.TimedRobot):
             self.littlearms1.set(self.arm_down + self.servo_offset1)
             self.littlearms2.set(self.arm_down + self.servo_offset2)
 
-        print("Lil Arms 1: ",self.littlearms1.get(), "      Lil Arms 2:",self.littlearms2.get())
+        print("Lil Arms 1: ",self.littlearms1.get(), "Lil Arms 2:",self.littlearms2.get())
 
 if __name__ == "__main__":
     wpilib.run(MyRobot)
