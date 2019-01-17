@@ -12,6 +12,11 @@ from networktables.util import ntproperty
 class MyRobot(wpilib.TimedRobot):
 
     servo_position = ntproperty('/Servo/Value', .5)
+    servo_offset1 = ntproperty('/Servo/Offset1', 0)
+    servo_offset2 = ntproperty('/Servo/Offset2', 0)
+    arm_up = ntproperty('/Servo/ArmUp', 0)
+    arm_down = ntproperty('/Servo/ArmDown', 0)
+    #liftforball = ntproperty('/Servo/ArmforBall', 0.5)
 
     def robotInit(self):
         self.BRmotor = ctre.wpi_talonsrx.WPI_TalonSRX(40)
@@ -23,10 +28,10 @@ class MyRobot(wpilib.TimedRobot):
         self.FRmotor.setInverted(True)
 
         self.spinman = ctre.wpi_talonsrx.WPI_TalonSRX(5)
-        self.timer = wpilib.Timer()
 
         self.littlearms1 = wpilib.Servo(7)
         self.littlearms2 = wpilib.Servo(8)
+
 
         self.robot_drive = wpilib.RobotDrive(self.FLmotor, self.BLmotor, self.FRmotor, self.BRmotor)
         self.joystick = wpilib.Joystick(0)
@@ -56,18 +61,19 @@ class MyRobot(wpilib.TimedRobot):
         else:
             self.spinman.set(0)
 
-        self.littlearms1.set(self.servo_position)
-        self.littlearms2.set(self.servo_position)
+        #if self.joystick.getRawButton(4):
+         #   self.armsup = not self.armsup
+        #if self.armsup:
+         #   self.littlearms1.set(self.liftforball + self.servo_offset1)
+          #  self.littlearms2.set(self.liftforball + self.servo_offset2)
 
-        #if self.joystick.getRawButton(5):
-         #   self.littlearms1.set(1)
-          #  self.littlearms2.set(1)
-        #elif self.joystick.getRawButton(6):
-         #   self.littlearms1.set(0)
-         #   self.littlearms2.set(0)
-        #else:
-         #   self.littlearms1.set(0.5)
-          #  self.littlearms2.set(0.5)
+
+        if self.joystick.getRawButton(2):
+            self.littlearms1.set(self.arm_up + self.servo_offset1)
+            self.littlearms2.set(self.arm_up + self.servo_offset2)
+        else:
+            self.littlearms1.set(self.arm_down + self.servo_offset1)
+            self.littlearms2.set(self.arm_down + self.servo_offset2)
 
         print("Lil Arms 1: ",self.littlearms1.get(), "      Lil Arms 2:",self.littlearms2.get())
 
