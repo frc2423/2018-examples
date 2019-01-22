@@ -26,8 +26,6 @@ class MyRobot(wpilib.TimedRobot):
     D = ntproperty('/PID/D', 0)
 
 
-
-
     ticks_per_rev_left = ntproperty('/encoders/ticks_per_rev_left', -1000)
     ticks_per_rev_right = ntproperty('/encoders/ticks_per_rev', 1440)
     max_speed = ntproperty('/encoders/max_speed', 5)
@@ -54,7 +52,7 @@ class MyRobot(wpilib.TimedRobot):
 
     wheel_diameter = ntproperty('/encoders/wheel_diameter', 6)
 
-    position_mode_distance = ntproperty('/position/distance_per_iteration', 1)
+    position_mode_distance = ntproperty('/position/max_distance', 1)
 
     image_center = 15
 
@@ -118,6 +116,8 @@ class MyRobot(wpilib.TimedRobot):
 
         self.turn_rate = 0
 
+        self.position_mode_toggle = False
+
         NetworkTables.addEntryListener(self.entry_listener)
 
     def entry_listener(self, key: str, value, is_new):
@@ -173,7 +173,7 @@ class MyRobot(wpilib.TimedRobot):
 
     def get_right_angular_pos(self):
         """this is what it does"""
-        encoder_value = self.br_motor.getQuadraturePosition()
+        encoder_value = self.fr_motor.getQuadraturePosition()
         ticks_per_turn = self.ticks_per_rev_right
         return 2 * math.pi * encoder_value / ticks_per_turn
 
@@ -196,14 +196,39 @@ class MyRobot(wpilib.TimedRobot):
         limelight_table.putNumber('ledMode', 1)
         self.pid.setSetpoint(MyRobot.image_center)
         self.pid.enable()
-        self.initial_position_right = self.get_right_angular_pos()
-        self.initial_position_left = self.get_left_angular_pos()
-        self.set_position_pid()
+        self.position_mode_toggle = False
+        self.set_velocity_pid()
 
 
     def teleopPeriodic(self):
+
         """This function is called periodically during operator control."""
-        self.position_mode()
+
+        if self.position_mode_toggle and self.joystick.getRawButton(1):
+            self.position_mode()
+        elif self.joystick.getRawButton(1):
+            print("Position mode transition")
+            self.position_mode_toggle = True
+
+            self.fl_motor.setIntegralAccumulator(0, 0, 0)
+            self.fr_motor.setIntegralAccumulator(0, 0, 0)
+            stick_displacement_left = self.deadzone(self.joystick.getRawAxis(1)) * self.ticks_per_ft_left
+            stick_displacement_right = self.deadzone(self.joystick.getRawAxis(1)) * self.ticks_per_ft_right
+            self.initial_position_right = self.fr_motor.getQuadraturePosition() + stick_displacement_right #self.get_right_angular_pos()
+            self.initial_position_left = -(self.fl_motor.getQuadraturePosition() + stick_displacement_left) #self.get_left_angular_pos()
+            self.set_position_pid()
+            print(f"position mode     Left: {self.initial_position_left}    Right: {self.initial_position_right}" )
+        elif self.position_mode_toggle:
+            print("Speed mode transition")
+            if abs(self.joystick.getRawAxis(1)) < .1:
+                self.position_mode_toggle = False
+                #self.set_velocity_pid()
+
+        else:
+            self.speed_mode()
+
+        #print(f"encoder left: {self.fl_motor.getQuadraturePosition()}    encoder right: {self.fr_motor.getQuadraturePosition()}")
+
         #self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.initial_position_left + self.position_mode_distance)
         #self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.initial_position_right + self.position_mode_distance)
         if self.target_found:
@@ -214,29 +239,36 @@ class MyRobot(wpilib.TimedRobot):
 
         left_speed = self.deadzone(left, .15) * self.max_speed
         left_motor_speed = self.to_motor_speed(left_speed, self.ticks_per_rev_left)
-
         self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, left_motor_speed)
 
         right_speed = self.deadzone(-right, .15) * self.max_speed
         right_motor_speed = self.to_motor_speed(right_speed, self.ticks_per_rev_right)
         self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, right_motor_speed)
 
-        print('selected sensor velocity', left_motor_speed, self.fl_motor.getSelectedSensorVelocity(0))
+        #print('selected sensor velocity', left_motor_speed, self.fl_motor.getSelectedSensorVelocity(0))
 
         return
 
     def position_mode(self):
 
-        displacement_right = self.joystick.getRawAxis(1) * self.ticks_per_ft_right
-        displacement_left = self.joystick.getRawAxis(1) * self.ticks_per_ft_left
 
-        self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, displacement_left)
-        self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, -displacement_right)
+        displacement_right = self.deadzone(self.joystick.getRawAxis(1)) * self.ticks_per_ft_right * self.position_mode_distance
+        displacement_left = self.deadzone(self.joystick.getRawAxis(1)) * self.ticks_per_ft_left * self.position_mode_distance
+
+        # print(f'displacement: left: {displacement_left} right: {displacement_right}' )
+        # print(f'position: left{self.fl_motor.getQuadraturePosition()} right: {self.fr_motor.getQuadraturePosition()}'  )
+        # print(f'initial left: {self.initial_position_left} right: {self.initial_position_right}')
+        # print(f'target: left: {self.initial_position_left + displacement_left} right: {self.initial_position_right - displacement_right}')
+        #
+        # print('------------------------------------------------------------------------------------')
+
+        self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.initial_position_left + displacement_left)
+        self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.initial_position_right - displacement_right)
 
         #print(f"displacement left: {displacement_left}    displacement right: {displacement_right}    initial left: {self.initial_position_left}    initial_right: {self.initial_position_right}")
 
 
-    def deadzone(self, value, min):
+    def deadzone(self, value, min = .1):
         if -min < value < min:
             return 0
         else:
