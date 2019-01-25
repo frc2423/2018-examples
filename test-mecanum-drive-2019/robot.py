@@ -57,7 +57,12 @@ class MyRobot(wpilib.TimedRobot):
     turn_rate_i = ntproperty('/gyro/turn_rate_i', 0)
     turn_rate_d = ntproperty('/gyro/turn_rate_d', 0)
 
+    pid_input_range = ntproperty('/gyro/pid_input_range', 200)
+    pid_output_range = ntproperty('/gyro/pid_output_range', .5)
+
     pause_time = ntproperty('/gyro/pause_time', 1)
+
+    max_turn_rate = ntproperty("/gyro/max_turn_rate", 120)
 
     def robotInit(self):
 
@@ -119,18 +124,18 @@ class MyRobot(wpilib.TimedRobot):
 
         self.init_time = 0
 
-        self.desired_angle = 0
+        self.desired_rate = 0
         self.pid_turn_rate = 0
 
-        def get_normalize_navx_angle():
-            return self.get_normalized_angle(self. navx.getAngle())
+        self.turn_rate_pid = wpilib.PIDController(self.turn_rate_p, self.turn_rate_i, self.turn_rate_d, self.navx.getRate, self.set_pid_turn_rate)
+        #self.turn_rate_pid.
+        #self.turn_rate_pid.
+        self.turn_rate_pid.setInputRange(-self.pid_input_range, self.pid_input_range)
+        self.turn_rate_pid.setOutputRange(-self.pid_output_range, self.pid_output_range)
 
-        self.turn_rate_pid = wpilib.PIDController(1, 0, 0, get_normalize_navx_angle, self.set_pid_turn_rate)
-        #self.turn_rate_pid.
-        #self.turn_rate_pid.
-        self.turn_rate_pid.setInputRange(-180, 180)
-        self.turn_rate_pid.setOutputRange(-.5, .5)
-        self.turn_rate_pid.setContinuous(True)
+        self.turn_rate_values = [0] * 10
+
+        self.prev_angle = 0
 
 
     def set_pid_turn_rate(self, turn_rate):
@@ -200,22 +205,20 @@ class MyRobot(wpilib.TimedRobot):
 
     def teleopPeriodic(self):
 
-        if self.deadzone(self.joystick.getRawAxis(4)) == 0:
-            if not self.timer.running:
-                self.timer.reset()
-                self.timer.start()
-            elif self.timer.get() > self.pause_time:
-                self.desired_angle = self.navx.getAngle()
-                self.timer.stop()
+        self.desired_rate = self.deadzone(self.joystick.getRawAxis(4)) * self.max_turn_rate
 
-        self.desired_angle = self.get_normalized_angle(self.
+        current_angle = self.navx.getAngle()
+        da = current_angle - self.prev_angle
+        self.prev_angle = current_angle
 
-                                                       + self.deadzone(self.joystick.getRawAxis(4)) * 5)
-        self.turn_rate_pid.setSetpoint(self.desired_angle)
+        self.turn_rate_values = self.turn_rate_values[1:] + [self.navx.getRate()]
+        average_values = sum(self.turn_rate_values) / len(self.turn_rate_values)
 
-        print(f"turn_rate: {round(self.pid_turn_rate, 3)}\t raw_angle: {round(self.navx.getAngle(), 3)}\t normalized_angle: {round(self.get_normalized_angle(self.navx.getAngle()), 3)}\t "
-              f""
-              f"desired_angle: {round(self.desired_angle, 3)}")
+        print(f"desired: {self.desired_rate}, measured: {self.navx.getRate()}, average_measured: {average_values}, pid: {self.pid_turn_rate}, da: {da}")
+
+        self.turn_rate_pid.setSetpoint(self.desired_rate)
+
+
         #print('desired angle:', self.desired_angle)
 
 
@@ -234,7 +237,7 @@ class MyRobot(wpilib.TimedRobot):
         else:
             x_speed = self.deadzone(-self.joystick.getRawAxis(0), .15)
             y_speed = self.deadzone(-self.joystick.getRawAxis(1), .15)
-            z_speed = self.pid_turn_rate #self.deadzone(-self.joystick.getRawAxis(4), .15)
+            z_speed = average_values #self.deadzone(-self.joystick.getRawAxis(4), .15)
 
         fl, bl, fr, br = driveCartesian(-x_speed, y_speed, -z_speed, self.navx.getAngle())
 
