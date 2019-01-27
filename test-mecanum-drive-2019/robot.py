@@ -16,6 +16,12 @@ class MyRobot(wpilib.TimedRobot):
 
     TIMEOUT_MS = 30
 
+    p = ntproperty('/encoders/p_fl', .5)
+    i = ntproperty('/encoders/i_fl', .001)
+    d = ntproperty('/encoders/d_fl', 0.0)
+    f = ntproperty('/encoders/f_fl', .7)
+
+
     servo_position = ntproperty('/Servo/Value', .5)
     servo_offset1 = ntproperty('/Servo/Offset1', 0)
     servo_offset2 = ntproperty('/Servo/Offset2', 0)
@@ -35,45 +41,26 @@ class MyRobot(wpilib.TimedRobot):
 
     def setEncoderPids(self):
         print("setting encoder PIDs")
-        p_fl = ntproperty('/encoders/p_fl', .5)
-        i_fl = ntproperty('/encoders/i_fl', .001)
-        d_fl = ntproperty('/encoders/d_fl', 0.0)
-        f_fl = ntproperty('/encoders/f_fl', .7)
 
-        p_bl = ntproperty('/encoders/p_bl', .5)
-        i_bl = ntproperty('/encoders/i_bl', .001)
-        d_bl = ntproperty('/encoders/d_bl', 0.0)
-        f_bl = ntproperty('/encoders/f_bl', 0.7)
+        self.fl_motor.config_kP(0, self.p, MyRobot.TIMEOUT_MS)
+        self.fl_motor.config_kI(0, self.i, MyRobot.TIMEOUT_MS)
+        self.fl_motor.config_kD(0, self.d, MyRobot.TIMEOUT_MS)
+        self.fl_motor.config_kF(0, self.f, MyRobot.TIMEOUT_MS)
 
-        p_fr = ntproperty('/encoders/p_fr', .5)
-        i_fr = ntproperty('/encoders/i_fr', 0.001)
-        d_fr = ntproperty('/encoders/d_fr', 0.0)
-        f_fr = ntproperty('/encoders/f_fr', 0.7)
+        self.bl_motor.config_kP(0, self.p, MyRobot.TIMEOUT_MS)
+        self.bl_motor.config_kI(0, self.i, MyRobot.TIMEOUT_MS)
+        self.bl_motor.config_kD(0, self.d, MyRobot.TIMEOUT_MS)
+        self.bl_motor.config_kF(0, self.f, MyRobot.TIMEOUT_MS)
 
-        p_br = ntproperty('/encoders/p_br', .5)
-        i_br = ntproperty('/encoders/i_br', 0.001)
-        d_br = ntproperty('/encoders/d_br', 0.0)
-        f_br = ntproperty('/encoders/f_br', 0.7)
+        self.fr_motor.config_kP(0, self.p, MyRobot.TIMEOUT_MS)
+        self.fr_motor.config_kI(0, self.i, MyRobot.TIMEOUT_MS)
+        self.fr_motor.config_kD(0, self.d, MyRobot.TIMEOUT_MS)
+        self.fr_motor.config_kF(0, self.f, MyRobot.TIMEOUT_MS)
 
-        self.fl_motor.config_kP(0, p_fl.fget(p_fl), MyRobot.TIMEOUT_MS)
-        self.fl_motor.config_kI(0, i_fl.fget(i_fl), MyRobot.TIMEOUT_MS)
-        self.fl_motor.config_kD(0, d_fl.fget(d_fl), MyRobot.TIMEOUT_MS)
-        self.fl_motor.config_kF(0, f_fl.fget(f_fl), MyRobot.TIMEOUT_MS)
-
-        self.bl_motor.config_kP(0, p_bl.fget(p_bl), MyRobot.TIMEOUT_MS)
-        self.bl_motor.config_kI(0, i_bl.fget(i_bl), MyRobot.TIMEOUT_MS)
-        self.bl_motor.config_kD(0, d_bl.fget(d_bl), MyRobot.TIMEOUT_MS)
-        self.bl_motor.config_kF(0, f_bl.fget(f_bl), MyRobot.TIMEOUT_MS)
-
-        self.fr_motor.config_kP(0, p_fr.fget(p_fr), MyRobot.TIMEOUT_MS)
-        self.fr_motor.config_kI(0, i_fr.fget(i_fr), MyRobot.TIMEOUT_MS)
-        self.fr_motor.config_kD(0, d_fr.fget(d_fr), MyRobot.TIMEOUT_MS)
-        self.fr_motor.config_kF(0, f_fr.fget(f_fr), MyRobot.TIMEOUT_MS)
-
-        self.br_motor.config_kP(0, p_br.fget(p_br), MyRobot.TIMEOUT_MS)
-        self.br_motor.config_kI(0, i_br.fget(i_br), MyRobot.TIMEOUT_MS)
-        self.br_motor.config_kD(0, d_br.fget(d_br), MyRobot.TIMEOUT_MS)
-        self.br_motor.config_kF(0, f_br.fget(f_br), MyRobot.TIMEOUT_MS)
+        self.br_motor.config_kP(0, self.p, MyRobot.TIMEOUT_MS)
+        self.br_motor.config_kI(0, self.i, MyRobot.TIMEOUT_MS)
+        self.br_motor.config_kD(0, self.d, MyRobot.TIMEOUT_MS)
+        self.br_motor.config_kF(0, self.f, MyRobot.TIMEOUT_MS)
 
 
     turn_rate_p = ntproperty('/gyro/turn_rate_p', 0)
@@ -208,6 +195,7 @@ class MyRobot(wpilib.TimedRobot):
         js_horizontal_2 = self.joystick.getRawAxis(4)
         if self.joystick.getRawButton(5):
             angle = math.atan2(js_horizontal_2, js_vertical_2)
+
         else:
             # self.desired_rate = self.deadzone(js_horizontal_2) * self.max_turn_rate
 
@@ -225,22 +213,22 @@ class MyRobot(wpilib.TimedRobot):
 
         if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_A):
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            #self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            # self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            # self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
         elif self.joystick.getRawButton(self.BUTTON_A):
             self.position_mode_toggle = True
-            self.fl_init_position = self.fl_motor.getSelectedSensorPosition()
-           # self.fr_init_position = self.fr_motor.getSelectedSensorPosition()
-            # self.br_init_position = self.br_motor.getSelectedSensorPosition()
-            # self.bl_init_position = self.bl_motor.getSelectedSensorPosition()
+            self.fl_init_position = self.fl_motor.getQuadraturePosition()
+            self.fr_init_position = self.fr_motor.getQuadraturePosition()
+            self.br_init_position = self.br_motor.getQuadraturePosition()
+            self.bl_init_position = self.bl_motor.getQuadraturePosition()
             print(f"fl init: {self.fl_init_position}")
         elif self.position_mode_toggle:
             self.position_mode_toggle = False
-            #self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position)
-            # self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position)
-            # self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position)
-            # self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position)
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position)
             print(f"fl end: {self.fl_init_position}")
         else:
             pass
