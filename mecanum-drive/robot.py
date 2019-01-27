@@ -18,6 +18,8 @@ class MyRobot(wpilib.TimedRobot):
         self.bl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(50)
         self.fl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(30)
         self.fr_motor = ctre.wpi_talonsrx.WPI_TalonSRX(10)
+
+        self.fr_motor.configMotionAcceleration()
         self.fr_motor.setInverted(True)
         self.br_motor.setInverted(True)
 
@@ -38,9 +40,7 @@ class MyRobot(wpilib.TimedRobot):
         x = self.joystick.getRawAxis(0)
         y = self.joystick.getRawAxis(1)
         turn = self.joystick.getRawAxis(4)
-        
-        y = 0
-        turn = 0
+
         self.robot_drive.mecanumDrive_Cartesian(x, y, turn, 0)
 
 

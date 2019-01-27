@@ -113,7 +113,7 @@ class MyRobot(wpilib.TimedRobot):
 
         self.joystick = wpilib.Joystick(0)
 
-        NetworkTables.addEntryListener(self.entry_listener)
+        # NetworkTables.addEntryListener(self.entry_listener)
 
         self.use_pid = False
         self.prev_pid_toggle_btn_value = False
@@ -135,8 +135,6 @@ class MyRobot(wpilib.TimedRobot):
 
         self.turn_rate_values = [0] * 10
 
-        self.prev_angle = 0
-
 
     def set_pid_turn_rate(self, turn_rate):
         self.pid_turn_rate = -turn_rate
@@ -155,24 +153,24 @@ class MyRobot(wpilib.TimedRobot):
             return angle
 
     def entry_listener(self, key, value, is_new):
+        try:
+            if key == '/gyro/turn_rate_p':
+                self.turn_rate_pid.setP(self.turn_rate_p)
+            elif key == '/gyro/turn_rate_i':
+                self.turn_rate_pid.setI(self.turn_rate_i)
+            elif key == '/gyro/turn_rate_d':
+                self.turn_rate_pid.setD(self.turn_rate_d)
 
-        if key == '/gyro/turn_rate_p':
-            self.turn_rate_pid.setP(self.turn_rate_p)
-        elif key == '/gyro/turn_rate_i':
-            self.turn_rate_pid.setI(self.turn_rate_i)
-        elif key == '/gyro/turn_rate_d':
-            self.turn_rate_pid.setD(self.turn_rate_d)
-
-        if key == '/encoders/p_fl':
-            self.fl_motor.config_kP(0, self.p_fl, 0)
-        elif key == '/encoders/i_fl':
-            self.fl_motor.config_kI(0, self.i_fl, 0)
-        elif key == '/encoders/d_fl':
-            self.fl_motor.config_kD(0, self.d_fl, 0)
-        elif key == '/encoders/f_fl':
-            self.fl_motor.config_kF(0, self.f_fl, 0)
-
-
+            if key == '/encoders/p_fl':
+                self.fl_motor.config_kP(0, self.p_fl, 0)
+            elif key == '/encoders/i_fl':
+                self.fl_motor.config_kI(0, self.i_fl, 0)
+            elif key == '/encoders/d_fl':
+                self.fl_motor.config_kD(0, self.d_fl, 0)
+            elif key == '/encoders/f_fl':
+                self.fl_motor.config_kF(0, self.f_fl, 0)
+        except Exception as oopsy:
+            print("There was an oopsy: " + str(oopsy))
 
 
 
@@ -191,11 +189,12 @@ class MyRobot(wpilib.TimedRobot):
         self.turn_rate_pid.enable()
 
     def on_pid_toggle(self):
-
+        """When button 4 is pressed, use_pid is toggled"""
         pid_toggle_btn_value = self.joystick.getRawButton(4)
 
         if not self.prev_pid_toggle_btn_value and pid_toggle_btn_value:
             self.use_pid = not self.use_pid
+            print('PID changed to ' + str(self.use_pid))
 
         self.prev_pid_toggle_btn_value = pid_toggle_btn_value
 
@@ -204,27 +203,26 @@ class MyRobot(wpilib.TimedRobot):
 
 
     def teleopPeriodic(self):
+        js_vertical_2 = self.joystick.getRawAxis(3)
+        js_horizontal_2 = self.joystick.getRawAxis(4)
+        if self.joystick.getRawButton(5):
+            angle = math.atan2(js_horizontal_2, js_vertical_2)
+        else:
+            # self.desired_rate = self.deadzone(js_horizontal_2) * self.max_turn_rate
 
-        self.desired_rate = self.deadzone(self.joystick.getRawAxis(4)) * self.max_turn_rate
+            # self.turn_rate_values = self.turn_rate_values[1:] + [self.navx.getRate()]
+            # average_values = sum(self.turn_rate_values) / len(self.turn_rate_values)
 
-        current_angle = self.navx.getAngle()
-        da = current_angle - self.prev_angle
-        self.prev_angle = current_angle
+            #print(f"desired: {self.desired_rate}, measured: {self.navx.getRate()}, average_measured: {average_values}, pid: {self.pid_turn_rate}")
 
-        self.turn_rate_values = self.turn_rate_values[1:] + [self.navx.getRate()]
-        average_values = sum(self.turn_rate_values) / len(self.turn_rate_values)
+            # self.turn_rate_pid.setSetpoint(self.desired_rate)
 
-        print(f"desired: {self.desired_rate}, measured: {self.navx.getRate()}, average_measured: {average_values}, pid: {self.pid_turn_rate}, da: {da}")
+            #x_speed = self.deadzone(-self.joystick.getRawAxis(1), .15) * self.max_speed
 
-        self.turn_rate_pid.setSetpoint(self.desired_rate)
-
-
-        #print('desired angle:', self.desired_angle)
+            # self.on_pid_toggle()
+            pass
 
 
-        #x_speed = self.deadzone(-self.joystick.getRawAxis(1), .15) * self.max_speed
-
-        self.on_pid_toggle()
 
         if self.joystick.getRawButton(2):
             x_speed = -.4
@@ -237,9 +235,9 @@ class MyRobot(wpilib.TimedRobot):
         else:
             x_speed = self.deadzone(-self.joystick.getRawAxis(0), .15)
             y_speed = self.deadzone(-self.joystick.getRawAxis(1), .15)
-            z_speed = average_values #self.deadzone(-self.joystick.getRawAxis(4), .15)
+            z_speed = self.deadzone(-js_horizontal_2)
 
-        fl, bl, fr, br = driveCartesian(-x_speed, y_speed, -z_speed, self.navx.getAngle())
+        fl, bl, fr, br = driveCartesian(-x_speed, y_speed, z_speed, self.navx.getAngle())
 
         if not self.use_pid:
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
