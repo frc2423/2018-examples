@@ -68,6 +68,8 @@ class MyRobot(wpilib.TimedRobot):
 
         self.TIMEOUT_MS = 30
 
+        self.BUTTON_A = 1
+
 
         self.br_motor = ctre.wpi_talonsrx.WPI_TalonSRX(7)
         self.bl_motor = ctre.wpi_talonsrx.WPI_TalonSRX(2)
@@ -204,9 +206,9 @@ class MyRobot(wpilib.TimedRobot):
 
         """This function is called periodically during operator control."""
 
-        if self.position_mode_toggle and self.joystick.getRawButton(1):
+        if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_A):
             self.position_mode()
-        elif self.joystick.getRawButton(1):
+        elif self.joystick.getRawButton(self.BUTTON_A):
             print("Position mode transition")
             self.position_mode_toggle = True
 
