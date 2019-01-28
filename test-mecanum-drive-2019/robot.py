@@ -212,10 +212,11 @@ class MyRobot(wpilib.TimedRobot):
             pass
 
         if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_A):
-            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
-            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position + self.joystick.getRawAxis(self.LY_AXIS) * 500)
+            fl, bl, fr, br = driveCartesian(0, self.joystick.getRawAxis(self.LY_AXIS), 0)
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fr)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, bl)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, br)
         elif self.joystick.getRawButton(self.BUTTON_A):
             self.position_mode_toggle = True
             self.fl_init_position = self.fl_motor.getQuadraturePosition()
