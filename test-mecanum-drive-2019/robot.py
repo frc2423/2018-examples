@@ -21,6 +21,8 @@ class MyRobot(wpilib.TimedRobot):
     d = ntproperty('/encoders/d_fl', 0.0)
     f = ntproperty('/encoders/f_fl', .7)
 
+    displacement_multiplier = ntproperty("/encoders/displacement_multiplier", 500)
+
 
     servo_position = ntproperty('/Servo/Value', .5)
     servo_offset1 = ntproperty('/Servo/Offset1', 0)
@@ -76,8 +78,11 @@ class MyRobot(wpilib.TimedRobot):
 
     def robotInit(self):
 
-        self.BUTTON_A = 1
+        self.BUTTON_RBUMPER = 6
+
         self.LY_AXIS = 1
+        self.LX_AXIS = 0
+        self.RX_AXIS = 4
 
         self.rev_per_ft = 12 / (math.pi * self.wheel_diameter)
 
@@ -211,19 +216,25 @@ class MyRobot(wpilib.TimedRobot):
             # self.on_pid_toggle()
             pass
 
-        if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_A):
-            fl, bl, fr, br = driveCartesian(0, self.joystick.getRawAxis(self.LY_AXIS), 0)
-            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl)
-            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fr)
-            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, bl)
-            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, br)
-        elif self.joystick.getRawButton(self.BUTTON_A):
+        if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_RBUMPER):
+            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS), self.joystick.getRawAxis(self.LY_AXIS), self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
+            print(f"FL={fl}, BL={bl}, FR={fr}, BR={br}")
+
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl*self.displacement_multiplier)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fr*self.displacement_multiplier)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, bl*self.displacement_multiplier)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, br*self.displacement_multiplier)
+        elif self.joystick.getRawButton(self.BUTTON_RBUMPER):
             self.position_mode_toggle = True
-            self.fl_init_position = self.fl_motor.getQuadraturePosition()
-            self.fr_init_position = self.fr_motor.getQuadraturePosition()
-            self.br_init_position = self.br_motor.getQuadraturePosition()
-            self.bl_init_position = self.bl_motor.getQuadraturePosition()
+            MyRobot.TIMEOUT_MS
+            self.fl_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
+            self.fr_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
+            self.br_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
+            self.bl_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
+            self.navx.reset()
+
             print(f"fl init: {self.fl_init_position}")
+
         elif self.position_mode_toggle:
             self.position_mode_toggle = False
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position)
@@ -231,6 +242,7 @@ class MyRobot(wpilib.TimedRobot):
             self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position)
             self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position)
             print(f"fl end: {self.fl_init_position}")
+
         else:
             pass
 
