@@ -39,6 +39,18 @@ class MyRobot(wpilib.TimedRobot):
     ticks_per_rev_fr = ntproperty('/encoders/ticks_per_rev_fr', 1440) # done
     ticks_per_rev_br = ntproperty('/encoders/ticks_per_rev_br', 1440) # done
 
+
+    turn_rate_p = ntproperty('/gyro/turn_rate_p', 0)
+    turn_rate_i = ntproperty('/gyro/turn_rate_i', 0)
+    turn_rate_d = ntproperty('/gyro/turn_rate_d', 0)
+
+    pid_input_range = ntproperty('/gyro/pid_input_range', 200)
+    pid_output_range = ntproperty('/gyro/pid_output_range', .5)
+
+    pause_time = ntproperty('/gyro/pause_time', 1)
+
+    max_turn_rate = ntproperty("/gyro/max_turn_rate", 120)
+
     def setEncoderPids(self):
         print("setting encoder PIDs")
 
@@ -63,16 +75,6 @@ class MyRobot(wpilib.TimedRobot):
         self.br_motor.config_kF(0, self.f, MyRobot.TIMEOUT_MS)
 
 
-    turn_rate_p = ntproperty('/gyro/turn_rate_p', 0)
-    turn_rate_i = ntproperty('/gyro/turn_rate_i', 0)
-    turn_rate_d = ntproperty('/gyro/turn_rate_d', 0)
-
-    pid_input_range = ntproperty('/gyro/pid_input_range', 200)
-    pid_output_range = ntproperty('/gyro/pid_output_range', .5)
-
-    pause_time = ntproperty('/gyro/pause_time', 1)
-
-    max_turn_rate = ntproperty("/gyro/max_turn_rate", 120)
 
     def robotInit(self):
 
@@ -127,11 +129,14 @@ class MyRobot(wpilib.TimedRobot):
         self.turn_rate_pid.setInputRange(-self.pid_input_range, self.pid_input_range)
         self.turn_rate_pid.setOutputRange(-self.pid_output_range, self.pid_output_range)
 
-        self.turn_rate_values = [0] * 10
+        self.turn_rate_values = [0] * 5
 
 
     def set_pid_turn_rate(self, turn_rate):
+
         self.pid_turn_rate = -turn_rate
+        self.turn_rate_values = self.turn_rate_values[1:] + [-turn_rate]
+        self.pid_turn_rate = sum(self.turn_rate_values) / len(self.turn_rate_values)
         #print('turn_rate:', turn_rate)
 
 
@@ -186,31 +191,73 @@ class MyRobot(wpilib.TimedRobot):
 
         self.prev_pid_toggle_btn_value = pid_toggle_btn_value
 
+    def gyro_smoothing(self):
+        self.desired_rate = self.deadzone(self.joystick.getRawAxis(4)) * self.max_turn_rate
 
 
+        #print(f"desired: {self.desired_rate}, measured: {self.navx.getRate()}, pid: {self.pid_turn_rate}")
 
+        self.turn_rate_pid.setSetpoint(self.desired_rate)
+
+        # print('desired angle:', self.desired_angle)
+
+
+        # x_speed = self.deadzone(-self.joystick.getRawAxis(1), .15) * self.max_speed
+
+        self.on_pid_toggle()
+
+        if self.joystick.getRawButton(2):
+            x_speed = -.4
+            y_speed = 0
+            z_speed = 0
+        elif self.joystick.getRawButton(3):
+            x_speed = .4
+            y_speed = 0
+            z_speed = 0
+        else:
+            x_speed = self.deadzone(-self.joystick.getRawAxis(0), .15)
+            y_speed = self.deadzone(-self.joystick.getRawAxis(1), .15)
+            z_speed = self.pid_turn_rate  # self.deadzone(-self.joystick.getRawAxis(4), .15)
+
+        fl, bl, fr, br = driveCartesian(-x_speed, y_speed, -z_speed, self.navx.getAngle())
+
+        if not self.use_pid:
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, br)
+
+
+        else:
+            fl_speed = self.to_motor_speed(fl * self.max_speed, self.ticks_per_rev)
+            bl_speed = self.to_motor_speed(bl * self.max_speed, self.ticks_per_rev)
+            fr_speed = self.to_motor_speed(fr * self.max_speed, self.ticks_per_rev)
+            br_speed = self.to_motor_speed(br * self.max_speed, self.ticks_per_rev)
+
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, fl_speed)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, bl_speed)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, fr_speed)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, br_speed)
 
     def teleopPeriodic(self):
         js_vertical_2 = self.joystick.getRawAxis(3)
         js_horizontal_2 = self.joystick.getRawAxis(4)
-        if self.joystick.getRawButton(5):
-            angle = math.atan2(js_horizontal_2, js_vertical_2)
 
-        else:
-            # self.desired_rate = self.deadzone(js_horizontal_2) * self.max_turn_rate
+        self.gyro_smoothing()
 
-            # self.turn_rate_values = self.turn_rate_values[1:] + [self.navx.getRate()]
-            # average_values = sum(self.turn_rate_values) / len(self.turn_rate_values)
 
-            #print(f"desired: {self.desired_rate}, measured: {self.navx.getRate()}, average_measured: {average_values}, pid: {self.pid_turn_rate}")
 
-            # self.turn_rate_pid.setSetpoint(self.desired_rate)
 
-            #x_speed = self.deadzone(-self.joystick.getRawAxis(1), .15) * self.max_speed
 
-            # self.on_pid_toggle()
-            pass
 
+    def regular_mec_drive(self):
+        x = self.joystick.getRawAxis(0)
+        y = self.joystick.getRawAxis(1)
+        rot = self.joystick.getRawAxis(4)
+
+        self.robot_drive.mecanumDrive_Cartesian(self.dead_zone(x), self.dead_zone(y), self.dead_zone(rot), 0)
+
+    def mecanum_position_mode(self):
         if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_A):
             fl, bl, fr, br = driveCartesian(0, self.joystick.getRawAxis(self.LY_AXIS), 0)
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl)
@@ -233,76 +280,6 @@ class MyRobot(wpilib.TimedRobot):
             print(f"fl end: {self.fl_init_position}")
         else:
             pass
-
-
-        # if self.joystick.getRawButton(2):
-        #     x_speed = -.4
-        #     y_speed = 0
-        #     z_speed = 0
-        # elif self.joystick.getRawButton(3):
-        #     x_speed = .4
-        #     y_speed = 0
-        #     z_speed = 0
-        # else:
-        #     x_speed = self.deadzone(-self.joystick.getRawAxis(0), .15)
-        #     y_speed = self.deadzone(-self.joystick.getRawAxis(1), .15)
-        #     z_speed = self.deadzone(-js_horizontal_2)
-        #
-        # fl, bl, fr, br = driveCartesian(-x_speed, y_speed, z_speed, self.navx.getAngle())
-        #
-        # if not self.use_pid:
-        #     self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
-        #     self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
-        #     self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
-        #     self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, br)
-        #
-        #
-        # else:
-        #     fl_speed = self.to_motor_speed(fl * self.max_speed, self.ticks_per_rev)
-        #     bl_speed = self.to_motor_speed(bl * self.max_speed, self.ticks_per_rev)
-        #     fr_speed = self.to_motor_speed(fr * self.max_speed, self.ticks_per_rev)
-        #     br_speed = self.to_motor_speed(br * self.max_speed, self.ticks_per_rev)
-        #
-        #     self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, fl_speed)
-        #     self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, bl_speed)
-        #     self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, fr_speed)
-        #     self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, br_speed)
-
-
-        #left_speed = self.deadzone(-self.joystick.getRawAxis(1), .15) * self.max_speed
-        #left_motor_speed = self.to_motor_speed(left_speed, self.ticks_per_rev)
-
-
-
-        #print('selected sensor velocity', left_motor_speed, self.fl_motor.getSelectedSensorVelocity(0))
-
-        #self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, left_motor_speed)
-        #self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, left_motor_speed)
-
-        #right_speed = self.deadzone(-self.joystick.getRawAxis(5), .15) * self.max_speed
-        #right_motor_speed = self.to_motor_speed(right_speed, self.ticks_per_rev)
-
-        #self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, right_motor_speed)
-        #self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Velocity, right_motor_speed)
-
-        '''
-        print('encoder counts:',
-              self.fl_motor.getQuadraturePosition(),
-              self.bl_motor.getQuadraturePosition(),
-              self.fr_motor.getQuadraturePosition(),
-              self.br_motor.getQuadraturePosition())
-              
-              
-
-        self.teleop_arms()
-        '''
-
-    def regular_mec_drive(self):
-        x = self.joystick.getRawAxis(0)
-        y = self.joystick.getRawAxis(1)
-        rot = self.joystick.getRawAxis(4)
-
-        self.robot_drive.mecanumDrive_Cartesian(self.dead_zone(x), self.dead_zone(y), self.dead_zone(rot), 0)
 
     def teleop_arms(self):
         if self.joystick.getRawAxis(2) > .2:
