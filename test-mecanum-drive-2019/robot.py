@@ -79,10 +79,12 @@ class MyRobot(wpilib.TimedRobot):
     def robotInit(self):
 
         self.BUTTON_RBUMPER = 6
+        self.BUTTON_LBUMPER = 5
 
         self.LY_AXIS = 1
         self.LX_AXIS = 0
         self.RX_AXIS = 4
+        self.RY_AXIS = 5
 
         self.rev_per_ft = 12 / (math.pi * self.wheel_diameter)
 
@@ -102,8 +104,9 @@ class MyRobot(wpilib.TimedRobot):
         self.fr_motor.setSensorPhase(False)  # Reverse negative encoder values
         self.br_motor.setSensorPhase(True)
 
+        self.deadzone_amount = 0.15
 
-        self.position_mode_toggle = False
+        self.control_state = "speed"
 
         self.spinman = ctre.wpi_talonsrx.WPI_TalonSRX(5)
 
@@ -216,35 +219,65 @@ class MyRobot(wpilib.TimedRobot):
             # self.on_pid_toggle()
             pass
 
-        if self.position_mode_toggle and self.joystick.getRawButton(self.BUTTON_RBUMPER):
-            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS), self.joystick.getRawAxis(self.LY_AXIS), self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
-            print(f"FL={fl}, BL={bl}, FR={fr}, BR={br}")
+        if self.control_state == "position" and self.joystick.getRawButton(self.BUTTON_RBUMPER):
+            # mode for ongoing position mode
+            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS), -self.joystick.getRawAxis(self.LY_AXIS), self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
 
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl*self.displacement_multiplier)
             self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fr*self.displacement_multiplier)
             self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, bl*self.displacement_multiplier)
             self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, br*self.displacement_multiplier)
+
         elif self.joystick.getRawButton(self.BUTTON_RBUMPER):
-            self.position_mode_toggle = True
+            # code for when position mode first starts
+            self.control_state = "position"
             MyRobot.TIMEOUT_MS
-            self.fl_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
-            self.fr_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
-            self.br_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
-            self.bl_motor.setQuadraturePosition(0, MyRobot.TIMEOUT_MS)
+            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS),
+                                            self.joystick.getRawAxis(self.LY_AXIS),
+                                            self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
+
+            self.fl_motor.setQuadraturePosition(int(fl), MyRobot.TIMEOUT_MS)
+            self.fr_motor.setQuadraturePosition(int(fr), MyRobot.TIMEOUT_MS)
+            self.br_motor.setQuadraturePosition(int(br), MyRobot.TIMEOUT_MS)
+            self.bl_motor.setQuadraturePosition(int(bl), MyRobot.TIMEOUT_MS)
             self.navx.reset()
 
-            print(f"fl init: {self.fl_init_position}")
+        elif self.control_state == "position":
+            # code for when position mode ends
+            if abs(self.joystick.getRawAxis(self.LX_AXIS)) < self.deadzone_amount and abs(
+                    self.joystick.getRawAxis(self.LY_AXIS)) < self.deadzone_amount and abs(
+                    self.joystick.getRawAxis(self.RX_AXIS)) < self.deadzone_amount:
+                self.control_state = "speed"
 
-        elif self.position_mode_toggle:
-            self.position_mode_toggle = False
-            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fl_init_position)
-            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.fr_init_position)
-            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.bl_init_position)
-            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, self.br_init_position)
-            print(f"fl end: {self.fl_init_position}")
+        elif self.joystick.getRawButton(self.BUTTON_LBUMPER) and self.control_state == "speed":
+            # code for entering rotation mode
+            self.control_state = "rotation"
+            print('button is pressed')
+            self.navx.reset()
+
+        elif self.joystick.getRawButton(self.BUTTON_LBUMPER) and self.control_state == "rotation":
+            # code for rotation mode
+            angle_X = self.joystick.getRawAxis(self.RX_AXIS)
+            angle_Y = self.joystick.getRawAxis(self.RY_AXIS)
+            angle_rad = math.atan(angle_Y, angle_X)
+            angle_deg = math.degrees(angle_rad)
+            print(angle_deg)
+
+        elif self.control_state == "rotation":
+            # code for exiting rotation mode
+            print('out of rotation mode')
+            self.control_state = "speed"
 
         else:
-            pass
+            # code for speed mode
+            x_speed = self.deadzone(self.joystick.getRawAxis(self.LX_AXIS), self.deadzone_amount)
+            y_speed = self.deadzone(self.joystick.getRawAxis(self.LY_AXIS), self.deadzone_amount)
+            z_speed = self.deadzone(js_horizontal_2)
+            fl, bl, fr, br = driveCartesian(x_speed, -y_speed, z_speed, self.navx.getAngle())
+            self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
+            self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
+            self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
+            self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, br)
 
 
         # if self.joystick.getRawButton(2):
