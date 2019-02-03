@@ -69,8 +69,8 @@ class MyRobot(wpilib.TimedRobot):
     turn_rate_i = ntproperty('/gyro/turn_rate_i', 0)
     turn_rate_d = ntproperty('/gyro/turn_rate_d', 0)
 
-    pid_input_range = ntproperty('/gyro/pid_input_range', 200)
-    pid_output_range = ntproperty('/gyro/pid_output_range', .5)
+    turn_rate_pid_input_range = ntproperty('/gyro/pid_input_range', 180)
+    turn_rate_pid_output_range = ntproperty('/gyro/pid_output_range', 1)
 
     pause_time = ntproperty('/gyro/pause_time', 1)
 
@@ -129,11 +129,15 @@ class MyRobot(wpilib.TimedRobot):
         self.desired_rate = 0
         self.pid_turn_rate = 0
 
-        self.turn_rate_pid = wpilib.PIDController(self.turn_rate_p, self.turn_rate_i, self.turn_rate_d, self.navx.getRate, self.set_pid_turn_rate)
+        def normalized_navx():
+            return self.get_normalized_angle(self.navx.getAngle())
+
+        self.angle_pid = wpilib.PIDController(self.turn_rate_p, self.turn_rate_i, self.turn_rate_d, self.navx.getAngle, self.set_pid_turn_rate)
         #self.turn_rate_pid.
         #self.turn_rate_pid.
-        self.turn_rate_pid.setInputRange(-self.pid_input_range, self.pid_input_range)
-        self.turn_rate_pid.setOutputRange(-self.pid_output_range, self.pid_output_range)
+        self.angle_pid.setInputRange(-self.turn_rate_pid_input_range, self.turn_rate_pid_input_range)
+        self.angle_pid.setOutputRange(-self.turn_rate_pid_output_range, self.turn_rate_pid_output_range)
+        self.angle_pid.setContinuous(True)
 
         self.turn_rate_values = [0] * 10
 
@@ -157,11 +161,11 @@ class MyRobot(wpilib.TimedRobot):
     def entry_listener(self, key, value, is_new):
         try:
             if key == '/gyro/turn_rate_p':
-                self.turn_rate_pid.setP(self.turn_rate_p)
+                self.angle_pid.setP(self.turn_rate_p)
             elif key == '/gyro/turn_rate_i':
-                self.turn_rate_pid.setI(self.turn_rate_i)
+                self.angle_pid.setI(self.turn_rate_i)
             elif key == '/gyro/turn_rate_d':
-                self.turn_rate_pid.setD(self.turn_rate_d)
+                self.angle_pid.setD(self.turn_rate_d)
 
             if "encoders" in key:
                 self.setEncoderPids()
@@ -182,7 +186,7 @@ class MyRobot(wpilib.TimedRobot):
     def teleopInit(self):
         self.desired_angle = 0
         self.navx.reset()
-        self.turn_rate_pid.enable()
+        self.angle_pid.disable()
 
     def on_pid_toggle(self):
         """When button 4 is pressed, use_pid is toggled"""
@@ -199,6 +203,8 @@ class MyRobot(wpilib.TimedRobot):
 
 
     def teleopPeriodic(self):
+        print(f'gyro_angle: {self.navx.getAngle()}')
+
         js_vertical_2 = self.joystick.getRawAxis(3)
         js_horizontal_2 = self.joystick.getRawAxis(4)
         if self.joystick.getRawButton(5):
@@ -254,18 +260,32 @@ class MyRobot(wpilib.TimedRobot):
             self.control_state = "rotation"
             print('button is pressed')
             self.navx.reset()
+            self.angle_pid.enable()
 
         elif self.joystick.getRawButton(self.BUTTON_LBUMPER) and self.control_state == "rotation":
             # code for rotation mode
             angle_X = self.joystick.getRawAxis(self.RX_AXIS)
             angle_Y = self.joystick.getRawAxis(self.RY_AXIS)
-            angle_rad = math.atan(angle_Y, angle_X)
-            angle_deg = math.degrees(angle_rad)
-            print(angle_deg)
+            hypotenuse = math.hypot(angle_X, angle_Y)
+            if hypotenuse > .9:
+                angle_rad = math.atan2(angle_Y, angle_X)
+                angle_deg = math.degrees(angle_rad)
+                print(f'angle_deg: {angle_deg}    pid_ouput: {self.angle_pid.get()}')
+                self.angle_pid.setSetpoint(angle_deg)
+                fl, bl, fr, br = driveCartesian(0, 0, self.angle_pid.get(), self.navx.getAngle())
+                self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
+                self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
+                self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
+                self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, br)
+
+
+
+
 
         elif self.control_state == "rotation":
             # code for exiting rotation mode
             print('out of rotation mode')
+            self.angle_pid.disable()
             self.control_state = "speed"
 
         else:
