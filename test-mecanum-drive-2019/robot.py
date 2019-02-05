@@ -5,12 +5,29 @@
 
 import wpilib
 import ctre
+from navx import AHRS
 from networktables import NetworkTables
 from networktables.util import ntproperty
 import math
 from mecanum import driveCartesian
 import navx
 
+class RelativeGyro:
+    def __init__(self, navx: AHRS):
+        self.navx = navx
+        self.zero_angle = 0
+
+    def reset(self):
+        self.zero_angle = self.navx.getAngle()
+
+    def getAngle(self):
+        adjusted_angle = self.navx.getAngle() - self.zero_angle
+        if adjusted_angle >= -180 and adjusted_angle <= 180:
+            return adjusted_angle
+        elif adjusted_angle < -180:
+            return 360 + adjusted_angle
+        elif adjusted_angle > 180:
+            return adjusted_angle - 360
 
 class MyRobot(wpilib.TimedRobot):
 
@@ -107,6 +124,10 @@ class MyRobot(wpilib.TimedRobot):
         self.deadzone_amount = 0.15
 
         self.control_state = "speed"
+        self.start_navx = 0
+        self.previous_hyp = 0
+        self.js_startAngle = 0
+        self.rot_startNavx = 0
 
         self.spinman = ctre.wpi_talonsrx.WPI_TalonSRX(5)
 
@@ -121,6 +142,7 @@ class MyRobot(wpilib.TimedRobot):
         self.prev_pid_toggle_btn_value = False
 
         self.navx = navx.AHRS.create_spi()
+        self.relativeGyro = RelativeGyro(self.navx)
 
         self.timer = wpilib.Timer()
 
@@ -132,7 +154,7 @@ class MyRobot(wpilib.TimedRobot):
         def normalized_navx():
             return self.get_normalized_angle(self.navx.getAngle())
 
-        self.angle_pid = wpilib.PIDController(self.turn_rate_p, self.turn_rate_i, self.turn_rate_d, self.navx.getAngle, self.set_pid_turn_rate)
+        self.angle_pid = wpilib.PIDController(self.turn_rate_p, self.turn_rate_i, self.turn_rate_d, self.relativeGyro.getAngle, self.set_pid_turn_rate)
         #self.turn_rate_pid.
         #self.turn_rate_pid.
         self.angle_pid.setInputRange(-self.turn_rate_pid_input_range, self.turn_rate_pid_input_range)
@@ -203,7 +225,6 @@ class MyRobot(wpilib.TimedRobot):
 
 
     def teleopPeriodic(self):
-        print(f'gyro_angle: {self.navx.getAngle()}')
 
         js_vertical_2 = self.joystick.getRawAxis(3)
         js_horizontal_2 = self.joystick.getRawAxis(4)
@@ -227,7 +248,10 @@ class MyRobot(wpilib.TimedRobot):
 
         if self.control_state == "position" and self.joystick.getRawButton(self.BUTTON_RBUMPER):
             # mode for ongoing position mode
-            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS), -self.joystick.getRawAxis(self.LY_AXIS), self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
+            fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS),
+                                            -self.joystick.getRawAxis(self.LY_AXIS),
+                                            self.joystick.getRawAxis(self.RX_AXIS),
+                                            self.relativeGyro.getAngle())
 
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fl*self.displacement_multiplier)
             self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.Position, fr*self.displacement_multiplier)
@@ -240,13 +264,14 @@ class MyRobot(wpilib.TimedRobot):
             MyRobot.TIMEOUT_MS
             fl, bl, fr, br = driveCartesian(self.joystick.getRawAxis(self.LX_AXIS),
                                             self.joystick.getRawAxis(self.LY_AXIS),
-                                            self.joystick.getRawAxis(self.RX_AXIS), self.navx.getAngle())
+                                            self.joystick.getRawAxis(self.RX_AXIS), self.relativeGyro.getAngle())
 
             self.fl_motor.setQuadraturePosition(int(fl), MyRobot.TIMEOUT_MS)
             self.fr_motor.setQuadraturePosition(int(fr), MyRobot.TIMEOUT_MS)
             self.br_motor.setQuadraturePosition(int(br), MyRobot.TIMEOUT_MS)
             self.bl_motor.setQuadraturePosition(int(bl), MyRobot.TIMEOUT_MS)
-            self.navx.reset()
+            self.relativeGyro.reset()
+
 
         elif self.control_state == "position":
             # code for when position mode ends
@@ -259,28 +284,31 @@ class MyRobot(wpilib.TimedRobot):
             # code for entering rotation mode
             self.control_state = "rotation"
             print('button is pressed')
-            self.navx.reset()
             self.angle_pid.enable()
 
         elif self.joystick.getRawButton(self.BUTTON_LBUMPER) and self.control_state == "rotation":
-            # code for rotation mode
+            # code for continuing rotation mode
             angle_X = self.joystick.getRawAxis(self.RX_AXIS)
             angle_Y = self.joystick.getRawAxis(self.RY_AXIS)
+            angle_rad = math.atan2(angle_Y, angle_X)
+            angle_deg = math.degrees(angle_rad)
             hypotenuse = math.hypot(angle_X, angle_Y)
-            if hypotenuse > .9:
-                angle_rad = math.atan2(angle_Y, angle_X)
-                angle_deg = math.degrees(angle_rad)
-                print(f'angle_deg: {angle_deg}    pid_ouput: {self.angle_pid.get()}')
-                self.angle_pid.setSetpoint(angle_deg)
-                fl, bl, fr, br = driveCartesian(0, 0, self.angle_pid.get(), self.navx.getAngle())
+
+            if hypotenuse >= .9 and self.previous_hyp < .9:
+                # crossing deadzone threshold
+                self.js_startAngle = angle_deg
+                self.rot_startNavx = self.relativeGyro.getAngle()
+                print(f"start angle: {self.js_startAngle}")
+            elif hypotenuse >= .9:
+                print(f'angle_deg: {angle_deg}   given angle: {angle_deg - self.js_startAngle}')
+                self.angle_pid.setSetpoint(angle_deg - self.js_startAngle)
+                fl, bl, fr, br = driveCartesian(0, 0, self.angle_pid.get())
                 self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
                 self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
                 self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
                 self.br_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, br)
 
-
-
-
+            self.previous_hyp = hypotenuse
 
         elif self.control_state == "rotation":
             # code for exiting rotation mode
@@ -293,7 +321,7 @@ class MyRobot(wpilib.TimedRobot):
             x_speed = self.deadzone(self.joystick.getRawAxis(self.LX_AXIS), self.deadzone_amount)
             y_speed = self.deadzone(self.joystick.getRawAxis(self.LY_AXIS), self.deadzone_amount)
             z_speed = self.deadzone(js_horizontal_2)
-            fl, bl, fr, br = driveCartesian(x_speed, -y_speed, z_speed, self.navx.getAngle())
+            fl, bl, fr, br = driveCartesian(x_speed, -y_speed, z_speed)
             self.fl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fl)
             self.bl_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, bl)
             self.fr_motor.set(ctre.WPI_TalonSRX.ControlMode.PercentOutput, fr)
