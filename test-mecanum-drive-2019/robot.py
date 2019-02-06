@@ -10,10 +10,10 @@ from networktables.util import ntproperty
 import math
 from mecanum import driveCartesian
 import navx
+from state_machine import State_Machine
 
 
 class MyRobot(wpilib.TimedRobot):
-
     TIMEOUT_MS = 30
 
     p = ntproperty('/encoders/p_fl', .5)
@@ -188,6 +188,17 @@ class MyRobot(wpilib.TimedRobot):
         self.navx.reset()
         self.angle_pid.disable()
 
+        self.driveStates = {
+            'velocity': self.velocity_transitions,
+            'position': self.position_transitions,
+            'rotation': self.rotation_transitions,
+            'leave_special': self.leave_special_transitions
+        }
+
+        self.drive_sm = State_Machine(self.driveStates)
+
+        self.drive_sm.set_state('velocity')
+
     def on_pid_toggle(self):
         """When button 4 is pressed, use_pid is toggled"""
         pid_toggle_btn_value = self.joystick.getRawButton(4)
@@ -200,10 +211,35 @@ class MyRobot(wpilib.TimedRobot):
 
 
 
+    def velocity_transitions(self):
+        if self.joystick.getRawButton(self.BUTTON_LBUMPER):
+            return 'rotation'
+        elif self.joystick.getRawButton(self.BUTTON_RBUMPER):
+            return 'position'
 
+        return 'velocity'
+
+    def position_transitions(self):
+        if self.joystick.getRawButton(self.BUTTON_RBUMPER):
+            return 'position'
+        return 'leave_special'
+
+    def rotation_transitions(self):
+        if self.joystick.getRawButton(self.BUTTON_LBUMPER):
+            return 'rotation'
+
+        return 'leave_special'
+
+    def leave_special_transitions(self):
+        if self.deadzone(self.joystick.getRawAxis(self.LX_AXIS)) == 0 and self.deadzone(self.joystick.getRawAxis(self.LY_AXIS) ) ==0 and self.deadzone(self.joystick.getRawAxis(self.RX_AXIS)) == 0 and self.deadzone(self.joystick.getRawAxis(self.RY_AXIS)) == 0:
+            return 'velocity'
+
+        return 'leave_special'
 
     def teleopPeriodic(self):
-        print(f'gyro_angle: {self.navx.getAngle()}')
+        self.drive_sm.run()
+
+        #print(f'gyro_angle: {self.navx.getAngle()}')
 
         js_vertical_2 = self.joystick.getRawAxis(3)
         js_horizontal_2 = self.joystick.getRawAxis(4)
