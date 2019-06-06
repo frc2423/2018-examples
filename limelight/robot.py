@@ -60,7 +60,7 @@ class MyRobot(wpilib.TimedRobot):
 
           print('speed: ', speed)
 
-          self.robot_drive.arcadeDrive(self.tx * self.turn_multiplier / 20, -speed * self.speed_multiplier)
+          self.robot_drive.mecanumDrive_Cartesian(self.tx * self.turn_multiplier / 20, -speed * self.speed_multiplier, 0, 0)
 
         else:
           print('target not detected')
